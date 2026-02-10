@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "src/app/page.jsx", "src/app/Inventory/page.jsx", "src/app/layout.jsx"  ],
+, "src/app/service/page.jsx", "src/app/service/inventory/page.jsx", "src/app/service/layout.jsx"  ],
   "exclude": ["node_modules"]
 }

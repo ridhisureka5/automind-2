@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Shield,
   AlertTriangle,
@@ -6,7 +8,42 @@ import {
   Lock,
 } from "lucide-react";
 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+} from "recharts";
+
 export default function AgentGovernancePage() {
+
+  // Fleet Trust Trend Data
+  const trustTrend = [
+    { day: "Mon", score: 82 },
+    { day: "Tue", score: 85 },
+    { day: "Wed", score: 88 },
+    { day: "Thu", score: 90 },
+    { day: "Fri", score: 92 },
+    { day: "Sat", score: 91 },
+    { day: "Sun", score: 94 },
+  ];
+
+  // Radar Governance Data
+  const radarData = [
+    { metric: "Auth Integrity", value: 92 },
+    { metric: "Access Control", value: 88 },
+    { metric: "Anomaly Detection", value: 84 },
+    { metric: "Policy Compliance", value: 90 },
+    { metric: "Data Security", value: 95 },
+  ];
+
   return (
     <main className="p-6 space-y-6 bg-slate-50 min-h-screen">
 
@@ -66,24 +103,44 @@ export default function AgentGovernancePage() {
             Fleet Trust Score Trend
           </h3>
 
-          <div className="flex items-end justify-between h-48 gap-3 mt-6">
-            {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d,i)=>(
-              <div key={i} className="flex flex-col items-center gap-2 w-full">
-                <div
-                  className="w-full bg-emerald-500 rounded-lg"
-                  style={{ height: `${70 + i * 4}%` }}
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer>
+              <BarChart data={trustTrend}>
+                <XAxis dataKey="day" />
+                <YAxis domain={[70, 100]} />
+                <Tooltip />
+                <Bar
+                  dataKey="score"
+                  fill="#10b981"
+                  radius={[6, 6, 0, 0]}
                 />
-                <span className="text-xs text-slate-500">{d}</span>
-              </div>
-            ))}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Radar Placeholder */}
-        <div className="bg-white rounded-xl shadow p-6 flex items-center justify-center">
-          <h3 className="text-slate-400 font-medium">
-            Radar Chart Placeholder
+        {/* Radar Chart */}
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold mb-4">
+            Governance Risk Profile
           </h3>
+
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer>
+              <RadarChart data={radarData}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="metric" />
+                <PolarRadiusAxis domain={[0, 100]} />
+                <Radar
+                  dataKey="value"
+                  stroke="#6366f1"
+                  fill="#6366f1"
+                  fillOpacity={0.6}
+                />
+                <Tooltip />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
       </div>
@@ -174,68 +231,14 @@ export default function AgentGovernancePage() {
         </div>
       </div>
 
-      {/* Logs */}
-      <div className="bg-white rounded-xl shadow p-6 space-y-4">
-
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold text-lg">
-            Anomaly Detection Logs
-          </h3>
-
-          <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs">
-            Live Feed
-          </span>
-        </div>
-
-        <Log
-          type="high"
-          title="Unusual access pattern"
-          agent="Alert Processor"
-          time="14:32:05"
-          ip="192.168.1.45"
-        />
-
-        <Log
-          type="medium"
-          title="Rate limit exceeded"
-          agent="Data Aggregator"
-          time="13:18:22"
-          ip="192.168.1.89"
-        />
-
-        <Log
-          type="medium"
-          title="Failed authentication"
-          agent="Diagnostic Assistant"
-          time="12:45:11"
-          ip="192.168.1.23"
-        />
-
-        <Log
-          type="high"
-          title="Suspicious query pattern"
-          agent="Alert Processor"
-          time="11:22:45"
-          ip="192.168.1.45"
-        />
-
-        <Log
-          type="low"
-          title="Resource spike"
-          agent="Predictive Engine"
-          time="10:05:33"
-          ip="192.168.1.12"
-        />
-
-      </div>
-
     </main>
   );
 }
 
-/* Components */
+/* ------------------ Components ------------------ */
 
 function StatCard({ title, value, subtitle, icon, color }) {
+
   const colors = {
     blue: "bg-blue-100 text-blue-600",
     green: "bg-green-100 text-green-600",
@@ -271,11 +274,17 @@ function AgentRow({
   risk,
   status,
 }) {
+
   const riskColor = {
     low: "bg-green-100 text-green-700",
     medium: "bg-yellow-100 text-yellow-700",
     high: "bg-red-100 text-red-700",
   };
+
+  const statusColor =
+    status === "active"
+      ? "bg-green-500"
+      : "bg-yellow-500";
 
   return (
     <tr className="h-14">
@@ -299,46 +308,16 @@ function AgentRow({
 
       <td>
         <span className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
+          <span className={`h-2 w-2 rounded-full ${statusColor}`} />
           {status}
         </span>
       </td>
 
       <td className="flex gap-3 pt-3">
-        <Eye size={18} />
-        <Lock size={18} />
+        <Eye size={18} className="cursor-pointer" />
+        <Lock size={18} className="cursor-pointer" />
       </td>
 
     </tr>
-  );
-}
-
-function Log({ type, title, agent, time, ip }) {
-  const colors = {
-    high: "bg-red-50 border-red-200 text-red-600",
-    medium: "bg-yellow-50 border-yellow-200 text-yellow-600",
-    low: "bg-green-50 border-green-200 text-green-600",
-  };
-
-  return (
-    <div
-      className={`border rounded-xl p-4 flex justify-between ${colors[type]}`}
-    >
-
-      <div>
-        <p className="font-medium text-slate-900">
-          {title}
-        </p>
-
-        <p className="text-xs text-slate-500">
-          Agent: {agent} • {time} • IP: {ip}
-        </p>
-      </div>
-
-      <span className="px-3 py-1 rounded-full text-xs capitalize bg-white">
-        {type}
-      </span>
-
-    </div>
   );
 }

@@ -11,6 +11,83 @@ import {
   File,
 } from "lucide-react";
 
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+/* ---------------- Fake Data Generator ---------------- */
+
+const generateFakeData = (count = 120) => {
+  const data = [];
+
+  for (let i = 1; i <= count; i++) {
+    data.push({
+      ID: i,
+      Vehicle: `CAR-${1000 + i}`,
+      Status: i % 2 === 0 ? "Healthy" : "Needs Service",
+      Mileage: `${20000 + i * 10} km`,
+      Alert: i % 3 === 0 ? "Engine Check" : "None",
+      Date: new Date().toLocaleDateString(),
+    });
+  }
+
+  return data;
+};
+
+/* ---------------- PDF Generator ---------------- */
+
+const downloadPDF = (title) => {
+  const doc = new jsPDF();
+
+  const data = generateFakeData();
+
+  doc.setFontSize(18);
+  doc.text(title, 14, 15);
+
+  doc.setFontSize(12);
+  doc.text(`Records: ${data.length}`, 14, 25);
+
+  let y = 35;
+
+  doc.text("ID   Vehicle     Status     Mileage     Alert", 14, y);
+  y += 5;
+
+  data.slice(0, 40).forEach((row) => {
+    doc.text(
+      `${row.ID}   ${row.Vehicle}   ${row.Status}   ${row.Mileage}   ${row.Alert}`,
+      14,
+      y
+    );
+    y += 6;
+  });
+
+  doc.save(`${title}.pdf`);
+};
+
+/* ---------------- Excel Generator ---------------- */
+
+const downloadExcel = (title) => {
+  const data = generateFakeData();
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  });
+
+  const file = new Blob([excelBuffer], {
+    type: "application/octet-stream",
+  });
+
+  saveAs(file, `${title}.xlsx`);
+};
+
+/* ================== MAIN PAGE ================== */
+
 export default function ReportsPage() {
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
@@ -62,44 +139,6 @@ export default function ReportsPage() {
 
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-        <div>
-          <p className="text-sm text-slate-600 mb-1">From</p>
-          <input
-            type="date"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-
-        <div>
-          <p className="text-sm text-slate-600 mb-1">To</p>
-          <input
-            type="date"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-
-        <div>
-          <p className="text-sm text-slate-600 mb-1">Report Type</p>
-
-          <select className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            <option>All Types</option>
-            <option>Fleet</option>
-            <option>Alerts</option>
-            <option>Manufacturing</option>
-            <option>Service</option>
-          </select>
-        </div>
-
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition">
-          <Filter size={18} />
-          Apply Filters
-        </button>
-
-      </div>
-
       {/* Available Reports */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
 
@@ -137,81 +176,8 @@ export default function ReportsPage() {
 
       </div>
 
-      {/* Historical Reports */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-
-        <div className="flex justify-between items-center mb-4">
-
-          <h2 className="text-lg font-semibold text-slate-800">
-            Historical Reports
-          </h2>
-
-          <span className="bg-slate-200 px-3 py-1 rounded-full text-xs text-slate-600">
-            5 files
-          </span>
-
-        </div>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full text-sm">
-
-            <thead>
-              <tr className="border-b text-slate-500 text-left">
-                <th className="py-3">Report Name</th>
-                <th>Date</th>
-                <th>Size</th>
-                <th>Type</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-
-              <HistoryRow
-                name="Monthly Fleet Report - December 2023"
-                date="2024-01-01"
-                size="2.4 MB"
-                type="PDF"
-              />
-
-              <HistoryRow
-                name="Q4 2023 Performance Summary"
-                date="2023-12-31"
-                size="5.8 MB"
-                type="EXCEL"
-              />
-
-              <HistoryRow
-                name="Annual Maintenance Analysis 2023"
-                date="2023-12-28"
-                size="12.3 MB"
-                type="PDF"
-              />
-
-              <HistoryRow
-                name="November Service Center Report"
-                date="2023-12-01"
-                size="1.8 MB"
-                type="PDF"
-              />
-
-              <HistoryRow
-                name="Q3 2023 Alert Trends"
-                date="2023-10-01"
-                size="3.2 MB"
-                type="EXCEL"
-              />
-
-            </tbody>
-
-          </table>
-
-        </div>
-      </div>
-
       {/* Quick Export */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 flex justify-between items-center gap-4">
 
         <div className="flex items-center gap-3">
 
@@ -232,11 +198,17 @@ export default function ReportsPage() {
 
         <div className="flex gap-3">
 
-          <button className="border px-4 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition">
+          <button
+            onClick={() => downloadPDF("Quick_Report")}
+            className="border px-4 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+          >
             Export PDF
           </button>
 
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          <button
+            onClick={() => downloadExcel("Quick_Report")}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
             Export Excel
           </button>
 
@@ -298,12 +270,18 @@ function ReportCard({ title, desc, time }) {
 
       <div className="flex gap-3 mt-4">
 
-        <button className="flex-1 border rounded-lg py-2 text-sm text-red-500 hover:bg-red-50 transition">
+        <button
+          onClick={() => downloadPDF(title)}
+          className="flex-1 border rounded-lg py-2 text-sm text-red-500 hover:bg-red-50 transition"
+        >
           <File size={16} className="inline mr-1" />
           PDF
         </button>
 
-        <button className="flex-1 border rounded-lg py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition">
+        <button
+          onClick={() => downloadExcel(title)}
+          className="flex-1 border rounded-lg py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition"
+        >
           <FileSpreadsheet size={16} className="inline mr-1" />
           Excel
         </button>
@@ -311,41 +289,5 @@ function ReportCard({ title, desc, time }) {
       </div>
 
     </div>
-  );
-}
-
-function HistoryRow({ name, date, size, type }) {
-  return (
-    <tr className="border-b hover:bg-slate-50 transition">
-
-      <td className="py-3 font-medium text-slate-700">
-        {name}
-      </td>
-
-      <td className="text-slate-500">{date}</td>
-
-      <td className="text-slate-500">{size}</td>
-
-      <td>
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium
-          ${
-            type === "PDF"
-              ? "bg-red-100 text-red-600"
-              : "bg-emerald-100 text-emerald-600"
-          }`}
-        >
-          {type}
-        </span>
-      </td>
-
-      <td>
-        <button className="text-blue-600 hover:underline flex items-center gap-1">
-          <Download size={14} />
-          Download
-        </button>
-      </td>
-
-    </tr>
   );
 }

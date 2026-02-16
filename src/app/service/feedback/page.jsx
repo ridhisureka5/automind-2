@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   MessageSquare,
   Star,
@@ -11,6 +11,76 @@ import {
 } from "lucide-react";
 
 export default function FeedbackPage() {
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+
+  // =========================
+  // FETCH FROM BACKEND
+  // =========================
+  useEffect(() => {
+
+    fetch("http://127.0.0.1:8000/feedback-analytics")
+      .then(res => res.json())
+      .then(json => {
+        setData(json);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+
+  }, []);
+
+
+  if (loading) {
+    return (
+      <div className="p-10 text-center text-slate-600">
+        Loading feedback analytics...
+      </div>
+    );
+  }
+
+
+  if (!data) {
+    return (
+      <div className="p-10 text-center text-red-500">
+        Failed to load data
+      </div>
+    );
+  }
+
+
+  // =========================
+  // DERIVED DATA
+  // =========================
+
+  const total = data.total_feedback;
+  const avgRating = data.avg_rating;
+
+  const positivePercent = data.sentiment.positive_percent;
+
+  const complaints = data.complaints;
+
+  const categories = data.categories;
+
+
+  // Rating Distribution
+  const ratingCount = {
+    5: 0,
+    4: 0,
+    3: 0,
+    2: 0,
+    1: 0,
+  };
+
+  complaints.forEach(c => {
+    ratingCount[c.rating] += 1;
+  });
+
+
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
 
@@ -19,34 +89,36 @@ export default function FeedbackPage() {
         <h1 className="text-2xl font-semibold text-slate-800">
           Customer Feedback
         </h1>
+
         <p className="text-slate-500 text-sm">
           Customer satisfaction and sentiment analysis
         </p>
       </div>
+
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
 
         <StatCard
           title="Total Feedback"
-          value="567"
-          sub="+24 this week"
+          value={total}
+          sub="+ ML powered"
           color="bg-blue-500"
           icon={<MessageSquare size={22} />}
         />
 
         <StatCard
           title="Avg Rating"
-          value="4.2"
-          sub="+0.3 out of 5"
+          value={avgRating}
+          sub="out of 5"
           color="bg-orange-500"
           icon={<Star size={22} />}
         />
 
         <StatCard
           title="Positive Sentiment"
-          value="73%"
-          sub="+5% improvement"
+          value={`${positivePercent}%`}
+          sub="AI analysis"
           color="bg-emerald-500"
           icon={<ThumbsUp size={22} />}
         />
@@ -54,26 +126,41 @@ export default function FeedbackPage() {
         <StatCard
           title="Response Rate"
           value="94%"
-          sub="+2% within 24h"
+          sub="within 24h"
           color="bg-violet-500"
           icon={<Send size={22} />}
         />
 
       </div>
 
-      {/* Charts Section */}
+
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
 
         {/* Rating Distribution */}
         <Card title="Rating Distribution">
 
-          <RatingRow star={5} value={245} percent={85} color="bg-emerald-500" />
-          <RatingRow star={4} value={189} percent={65} color="bg-blue-500" />
-          <RatingRow star={3} value={87} percent={35} color="bg-yellow-400" />
-          <RatingRow star={2} value={34} percent={18} color="bg-orange-400" />
-          <RatingRow star={1} value={12} percent={8} color="bg-red-500" />
+          {[5,4,3,2,1].map(star => (
+
+            <RatingRow
+              key={star}
+              star={star}
+              value={ratingCount[star]}
+              percent={(ratingCount[star]/total)*100}
+              color={
+                star===5 ? "bg-emerald-500" :
+                star===4 ? "bg-blue-500" :
+                star===3 ? "bg-yellow-400" :
+                star===2 ? "bg-orange-400" :
+                "bg-red-500"
+              }
+            />
+
+          ))}
 
         </Card>
+
 
         {/* Sentiment */}
         <Card title="Sentiment Distribution">
@@ -82,11 +169,22 @@ export default function FeedbackPage() {
 
             <div className="w-44 h-44 rounded-full border-[14px] border-emerald-500 relative mb-4">
 
-              <div className="absolute top-0 right-0 w-1/3 h-full border-r-[14px] border-red-500 rounded-r-full" />
+              <div
+                className="absolute top-0 right-0 w-1/3 h-full border-r-[14px] border-red-500 rounded-r-full"
+                style={{
+                  width: `${data.sentiment.negative * 30}px`
+                }}
+              />
 
-              <div className="absolute bottom-0 left-0 w-full h-1/3 border-b-[14px] border-slate-400 rounded-b-full" />
+              <div
+                className="absolute bottom-0 left-0 w-full h-1/3 border-b-[14px] border-slate-400 rounded-b-full"
+                style={{
+                  height: `${data.sentiment.neutral * 20}px`
+                }}
+              />
 
             </div>
+
 
             <div className="flex gap-4 text-sm text-slate-600">
 
@@ -106,25 +204,33 @@ export default function FeedbackPage() {
               </span>
 
             </div>
+
           </div>
 
         </Card>
 
+
         {/* Category */}
         <Card title="By Category">
 
-          <CategoryRow name="Service" value={180} />
-          <CategoryRow name="Vehicle Quality" value={140} />
-          <CategoryRow name="Support" value={95} />
-          <CategoryRow name="App Experience" value={70} />
-          <CategoryRow name="Other" value={55} />
+          {Object.keys(categories).map(cat => (
+
+            <CategoryRow
+              key={cat}
+              name={cat}
+              value={categories[cat]}
+            />
+
+          ))}
 
         </Card>
 
       </div>
 
-      {/* Complaints Section */}
+
+      {/* Complaints */}
       <div className="bg-white rounded-xl shadow-sm p-6">
+
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -136,86 +242,68 @@ export default function FeedbackPage() {
           <div className="flex items-center gap-3">
 
             <div className="relative">
+
               <Search
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
+
               <input
                 placeholder="Search feedback..."
-                className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm"
               />
+
             </div>
 
-            <FilterBtn text="All" active />
-            <FilterBtn text="Pending" />
-            <FilterBtn text="Resolved" />
-
           </div>
+
         </div>
 
-        {/* Complaints List */}
+
+        {/* List */}
         <div className="space-y-4">
 
-          <Complaint
-            name="John Smith"
-            rating={2}
-            tag="Service"
-            text="Long wait times at the service center. Took over 4 hours for a simple oil change."
-            date="2024-01-15"
-            status="Pending"
-          />
+          {complaints.map((c, i) => (
 
-          <Complaint
-            name="Sarah Johnson"
-            rating={1}
-            tag="Vehicle Quality"
-            text="Transmission issues started within first month of ownership. Very disappointed."
-            date="2024-01-14"
-            status="Resolved"
-          />
+            <Complaint
+              key={i}
+              name={c.name}
+              rating={c.rating}
+              tag={c.category}
+              text={c.text}
+              date={c.date}
+              status={
+                c.sentiment === "negative"
+                  ? "Pending"
+                  : "Resolved"
+              }
+            />
 
-          <Complaint
-            name="Michael Brown"
-            rating={2}
-            tag="Support"
-            text="Customer support was unhelpful and kept transferring my call."
-            date="2024-01-13"
-            status="Pending"
-          />
-
-          <Complaint
-            name="Emily Davis"
-            rating={3}
-            tag="App Experience"
-            text="App crashes frequently when trying to schedule appointments."
-            date="2024-01-12"
-            status="Resolved"
-          />
+          ))}
 
         </div>
 
       </div>
+
     </div>
   );
 }
 
-/* ---------------- Components ---------------- */
+
+/* ================= COMPONENTS ================= */
+
 
 function StatCard({ title, value, sub, icon, color }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between">
+    <div className="bg-white rounded-xl shadow-sm p-5 flex justify-between">
 
       <div>
         <p className="text-sm text-slate-500">{title}</p>
-        <h3 className="text-2xl font-semibold text-slate-800 mt-1">
-          {value}
-        </h3>
+        <h3 className="text-2xl font-semibold mt-1">{value}</h3>
         <p className="text-xs text-emerald-600 mt-1">{sub}</p>
       </div>
 
-      <div
-        className={`${color} text-white p-3 rounded-lg`}
-      >
+      <div className={`${color} text-white p-3 rounded-lg`}>
         {icon}
       </div>
 
@@ -223,18 +311,21 @@ function StatCard({ title, value, sub, icon, color }) {
   );
 }
 
+
 function Card({ title, children }) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 h-full">
 
-      <h3 className="font-semibold text-slate-700 mb-4">
+      <h3 className="font-semibold mb-4 text-slate-700">
         {title}
       </h3>
 
       {children}
+
     </div>
   );
 }
+
 
 function RatingRow({ star, value, percent, color }) {
   return (
@@ -246,15 +337,18 @@ function RatingRow({ star, value, percent, color }) {
       </div>
 
       <div className="h-2 bg-slate-200 rounded-full">
+
         <div
           className={`h-2 ${color} rounded-full`}
           style={{ width: `${percent}%` }}
         />
+
       </div>
 
     </div>
   );
 }
+
 
 function CategoryRow({ name, value }) {
   return (
@@ -266,55 +360,32 @@ function CategoryRow({ name, value }) {
       </div>
 
       <div className="h-2 bg-slate-200 rounded-full">
+
         <div
           className="h-2 bg-blue-500 rounded-full"
-          style={{ width: `${value / 2}%` }}
+          style={{ width: `${value * 2}%` }}
         />
+
       </div>
 
     </div>
   );
 }
 
-function FilterBtn({ text, active }) {
-  return (
-    <button
-      className={`px-3 py-1.5 text-sm rounded-lg border transition
-        ${
-          active
-            ? "bg-blue-500 text-white border-blue-500"
-            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-        }`}
-    >
-      {text}
-    </button>
-  );
-}
 
-function Complaint({
-  name,
-  rating,
-  tag,
-  text,
-  date,
-  status,
-}) {
+function Complaint({ name, rating, tag, text, date, status }) {
   return (
     <div className="bg-slate-100 rounded-lg p-4">
 
       <div className="flex justify-between items-start">
 
         <div>
+
           <div className="flex items-center gap-2 mb-1">
 
-            <ThumbsDown
-              size={18}
-              className="text-red-500"
-            />
+            <ThumbsDown size={18} className="text-red-500" />
 
-            <span className="font-medium text-slate-800">
-              {name}
-            </span>
+            <span className="font-medium">{name}</span>
 
             <Stars count={rating} />
 
@@ -324,6 +395,7 @@ function Complaint({
 
           </div>
 
+
           <p className="text-sm text-slate-600 mb-1">
             {text}
           </p>
@@ -331,7 +403,9 @@ function Complaint({
           <p className="text-xs text-slate-400">
             {date}
           </p>
+
         </div>
+
 
         <span
           className={`text-xs px-3 py-1 rounded-full font-medium
@@ -345,21 +419,27 @@ function Complaint({
         </span>
 
       </div>
+
     </div>
   );
 }
 
+
 function Stars({ count }) {
   return (
     <div className="flex text-yellow-400">
+
       {Array.from({ length: 5 }).map((_, i) => (
+
         <Star
           key={i}
           size={14}
           fill={i < count ? "currentColor" : "none"}
           stroke="currentColor"
         />
+
       ))}
+
     </div>
   );
 }

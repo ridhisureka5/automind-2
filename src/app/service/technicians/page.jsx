@@ -1,88 +1,34 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
+
 import {
   Plus,
   Phone,
   Mail,
   Star,
   Wrench,
-  Clock,
   CheckCircle,
   Users,
   Award,
 } from "lucide-react";
 
+/* ======================================================
+   MAIN COMPONENT
+====================================================== */
+
 export default function Technicians() {
+
   /* ---------------- STATE ---------------- */
 
-  const [technicians, setTechnicians] = useState([
-    {
-      id: 1,
-      name: "Robert Chen",
-      role: "Senior Technician",
-      specialty: "Engine & Transmission",
-      experience: 12,
-      rating: 4.9,
-      jobs: 847,
-      status: "working",
-      phone: "9876543210",
-      email: "robert@service.com",
-      job: "Engine Repair - Toyota Camry",
-      progress: 75,
-    },
-    {
-      id: 2,
-      name: "Maria Garcia",
-      role: "Technician",
-      specialty: "Electrical Systems",
-      experience: 8,
-      rating: 4.8,
-      jobs: 523,
-      status: "available",
-      phone: "9876543211",
-      email: "maria@service.com",
-    },
-    {
-      id: 3,
-      name: "James Wilson",
-      role: "Technician",
-      specialty: "Brakes & Suspension",
-      experience: 9,
-      rating: 4.7,
-      jobs: 612,
-      status: "working",
-      phone: "9876543212",
-      email: "james@service.com",
-      job: "Brake Service - Honda Accord",
-      progress: 45,
-    },
-    {
-      id: 4,
-      name: "Lisa Taylor",
-      role: "Junior Technician",
-      specialty: "General Maintenance",
-      experience: 3,
-      rating: 4.6,
-      jobs: 234,
-      status: "break",
-      phone: "9876543213",
-      email: "lisa@service.com",
-    },
-    {
-      id: 5,
-      name: "Michael Brown",
-      role: "Senior Technician",
-      specialty: "Diagnostics",
-      experience: 15,
-      rating: 4.9,
-      jobs: 956,
-      status: "working",
-      phone: "9876543214",
-      email: "michael@service.com",
-      job: "Full Diagnostics - BMW X5",
-      progress: 90,
-    },
-  ]);
+  const [technicians, setTechnicians] = useState([]);
+
+  const [summary, setSummary] = useState({
+    total: 0,
+    available: 0,
+    working: 0,
+    avg_rating: 0,
+  });
 
   const [showModal, setShowModal] = useState(false);
 
@@ -94,21 +40,91 @@ export default function Technicians() {
     email: "",
   });
 
+
+  /* ---------------- FETCH ML DATA ---------------- */
+
+  useEffect(() => {
+
+    fetch("http://127.0.0.1:8000/technician-analytics")
+      .then((res) => res.json())
+      .then((data) => {
+
+        const formatted = data.technicians.map((t) => ({
+
+          id: t.id,
+
+          name: t.name,
+
+          role: t.experience > 10
+            ? "Senior Technician"
+            : "Technician",
+
+          specialty: t.skill,
+
+          experience: t.experience,
+
+          rating: t.rating,
+
+          jobs: t.jobs,
+
+          status: t.status.toLowerCase(),
+
+          phone: "9876543210",
+
+          email: `${t.name
+            .toLowerCase()
+            .replace(" ", ".")}@service.com`,
+
+          job:
+            t.status === "Working"
+              ? "Assigned Service Task"
+              : null,
+
+          progress: t.load,
+        }));
+
+        setTechnicians(formatted);
+        setSummary(data.summary);
+
+      })
+      .catch((err) => {
+        console.error("ML Fetch Error:", err);
+      });
+
+  }, []);
+
+
   /* ---------------- ADD TECH ---------------- */
 
   const handleAdd = () => {
+
     if (!form.name || !form.role) return;
 
     const newTech = {
+
       id: Date.now(),
-      ...form,
+
+      name: form.name,
+
+      role: form.role,
+
+      specialty: form.specialty,
+
       experience: 1,
+
       rating: 4.5,
+
       jobs: 0,
+
       status: "available",
+
+      phone: form.phone,
+
+      email: form.email,
     };
 
     setTechnicians([...technicians, newTech]);
+
     setShowModal(false);
 
     setForm({
@@ -120,33 +136,40 @@ export default function Technicians() {
     });
   };
 
-  /* ---------------- STATS ---------------- */
 
-  const total = technicians.length;
+  /* ---------------- ASSIGN JOB ---------------- */
 
-  const available = technicians.filter(
-    (t) => t.status === "available"
-  ).length;
+  const handleAssign = (id) => {
 
-  const working = technicians.filter(
-    (t) => t.status === "working"
-  ).length;
+    setTechnicians((prev) =>
+      prev.map((tech) =>
+        tech.id === id
+          ? {
+              ...tech,
+              status: "working",
+              job: "New Service Task",
+              progress: 10,
+            }
+          : tech
+      )
+    );
+  };
 
-  const avgRating = (
-    technicians.reduce((a, b) => a + b.rating, 0) /
-    technicians.length
-  ).toFixed(1);
 
-  /* ---------------- UI ---------------- */
+  /* ======================================================
+     UI
+  ====================================================== */
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
+
 
       {/* HEADER */}
 
       <div className="flex justify-between items-center mb-6">
 
         <div>
+
           <h1 className="text-3xl font-bold">
             Technician Management
           </h1>
@@ -154,7 +177,9 @@ export default function Technicians() {
           <p className="text-gray-500">
             Track and manage your service team
           </p>
+
         </div>
+
 
         <button
           onClick={() => setShowModal(true)}
@@ -165,6 +190,7 @@ export default function Technicians() {
 
       </div>
 
+
       {/* STATS */}
 
       <div className="grid md:grid-cols-4 gap-5 mb-8">
@@ -172,42 +198,46 @@ export default function Technicians() {
         <StatCard
           icon={<Users />}
           title="Total Technicians"
-          value={total}
-          color="blue"
+          value={summary.total}
         />
 
         <StatCard
           icon={<CheckCircle />}
           title="Available"
-          value={available}
-          color="green"
+          value={summary.available}
         />
 
         <StatCard
           icon={<Wrench />}
           title="Working"
-          value={working}
-          color="yellow"
+          value={summary.working}
         />
 
         <StatCard
           icon={<Award />}
           title="Team Rating"
-          value={avgRating}
-          color="purple"
+          value={summary.avg_rating}
         />
 
       </div>
+
 
       {/* TECH GRID */}
 
       <div className="grid md:grid-cols-3 gap-6">
 
         {technicians.map((tech) => (
-          <TechCard key={tech.id} tech={tech} />
+
+          <TechCard
+            key={tech.id}
+            tech={tech}
+            onAssign={handleAssign}
+          />
+
         ))}
 
       </div>
+
 
       {/* ADD MODAL */}
 
@@ -273,6 +303,7 @@ export default function Technicians() {
 
             </div>
 
+
             <div className="flex justify-end gap-3 mt-5">
 
               <button
@@ -292,6 +323,7 @@ export default function Technicians() {
             </div>
 
           </div>
+
         </div>
       )}
 
@@ -299,13 +331,49 @@ export default function Technicians() {
   );
 }
 
-/* ---------------- COMPONENTS ---------------- */
 
-function TechCard({ tech }) {
+/* ======================================================
+   COMPONENTS
+====================================================== */
+
+
+/* ---------- STAT CARD ---------- */
+
+function StatCard({ icon, title, value }) {
+
+  return (
+    <div className="bg-white p-5 rounded-xl shadow flex justify-between items-center">
+
+      <div>
+
+        <p className="text-gray-500 text-sm">
+          {title}
+        </p>
+
+        <h2 className="text-2xl font-bold">
+          {value}
+        </h2>
+
+      </div>
+
+      <div className="p-3 rounded-lg bg-blue-100 text-blue-600">
+        {icon}
+      </div>
+
+    </div>
+  );
+}
+
+
+/* ---------- TECH CARD ---------- */
+
+function TechCard({ tech, onAssign }) {
+
   const initials = tech.name
     .split(" ")
     .map((n) => n[0])
     .join("");
+
 
   const statusStyle = {
     working: "bg-yellow-100 text-yellow-700",
@@ -313,14 +381,17 @@ function TechCard({ tech }) {
     break: "bg-gray-200 text-gray-700",
   };
 
+
   const statusText = {
     working: "Working",
     available: "Available",
     break: "On Break",
   };
 
+
   return (
-    <div className="bg-white p-5 rounded-xl shadow">
+    <div className="bg-white p-5 rounded-xl shadow flex flex-col min-h-[420px]">
+
 
       {/* HEADER */}
 
@@ -333,6 +404,7 @@ function TechCard({ tech }) {
           </div>
 
           <div>
+
             <h3 className="font-semibold">
               {tech.name}
             </h3>
@@ -340,9 +412,11 @@ function TechCard({ tech }) {
             <p className="text-sm text-gray-500">
               {tech.role}
             </p>
+
           </div>
 
         </div>
+
 
         <span
           className={`px-3 py-1 rounded-full text-xs ${statusStyle[tech.status]}`}
@@ -352,9 +426,10 @@ function TechCard({ tech }) {
 
       </div>
 
+
       {/* INFO */}
 
-      <div className="space-y-2 text-sm text-gray-600">
+      <div className="space-y-2 text-sm text-gray-600 mb-4">
 
         <p>🔧 {tech.specialty}</p>
 
@@ -367,86 +442,80 @@ function TechCard({ tech }) {
 
       </div>
 
+
       {/* JOB */}
 
-      {tech.status === "working" && (
+      <div className="min-h-[110px] mb-4">
 
-        <div className="bg-yellow-50 p-3 rounded-lg mt-4">
+        {tech.status === "working" && tech.job ? (
 
-          <p className="text-sm font-medium">
-            Current Job
-          </p>
+          <div className="bg-yellow-50 p-3 rounded-lg">
 
-          <p className="text-sm mb-2">
-            {tech.job}
-          </p>
+            <p className="text-sm font-medium">
+              Current Job
+            </p>
 
-          <div className="h-2 bg-gray-200 rounded">
+            <p className="text-sm mb-2">
+              {tech.job}
+            </p>
 
-            <div
-              className="h-full bg-black rounded"
-              style={{
-                width: `${tech.progress}%`,
-              }}
-            ></div>
+            <div className="h-2 bg-gray-200 rounded">
+
+              <div
+                className="h-full bg-black rounded"
+                style={{
+                  width: `${tech.progress}%`,
+                }}
+              />
+
+            </div>
+
+            <p className="text-right text-xs mt-1">
+              {tech.progress}%
+            </p>
 
           </div>
 
-          <p className="text-right text-xs mt-1">
-            {tech.progress}%
-          </p>
+        ) : (
 
-        </div>
-      )}
+          <div className="h-full bg-slate-50 rounded-lg" />
+
+        )}
+
+      </div>
+
 
       {/* ACTIONS */}
 
-      <div className="flex gap-3 mt-4">
+      <div className="mt-auto flex gap-3">
 
         <a
           href={`tel:${tech.phone}`}
-          className="btn-secondary flex-1"
+          className="btn-secondary flex-1 flex items-center justify-center gap-1"
         >
           <Phone size={16} /> Call
         </a>
 
         <a
           href={`mailto:${tech.email}`}
-          className="btn-secondary flex-1"
+          className="btn-secondary flex-1 flex items-center justify-center gap-1"
         >
-          <Mail size={16} /> Email Email
+          <Mail size={16} /> Email
         </a>
 
         {tech.status === "available" && (
-          <button className="btn-primary flex-1">
+
+          <button
+            onClick={() => onAssign(tech.id)}
+            className="btn-primary flex-1"
+          >
             Assign
           </button>
+
         )}
 
       </div>
-    </div>
-  );
-}
 
-function StatCard({ icon, title, value, color }) {
-  return (
-    <div className="bg-white p-5 rounded-xl shadow flex justify-between items-center">
-
-      <div>
-        <p className="text-gray-500 text-sm">
-          {title}
-        </p>
-
-        <h2 className="text-2xl font-bold">
-          {value}
-        </h2>
-      </div>
-
-      <div
-        className={`p-3 rounded-lg bg-${color}-100 text-${color}-600`}
-      >
-        {icon}
-      </div>
     </div>
   );
 }

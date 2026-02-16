@@ -57,7 +57,6 @@ export default function OEMLayout({ children }) {
                 icon={<Factory size={18} />}
                 text="Manufacturing"
               />
-
               {/* Feedback */}
               <MenuItem
                 href="/oem/agent-governance/feedback"

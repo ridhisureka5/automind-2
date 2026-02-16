@@ -1,108 +1,71 @@
 "use client";
-import { useState, useMemo } from "react";
+
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
-  Filter,
-  ArrowUpDown,
   Plus,
   Truck,
   Brain,
   Package,
   AlertCircle,
   CheckCircle,
+  X,
 } from "lucide-react";
 
 export default function Inventory() {
   /* ---------------- DATA ---------------- */
 
-  const [items, setItems] = useState([
-    {
-      id: 1,
-      name: "Brake Pads (Premium)",
-      sku: "BP-001",
-      category: "Brakes",
-      stock: 24,
-      max: 50,
-      demand: 12,
-      price: 89.99,
-    },
-    {
-      id: 2,
-      name: "Oil Filters (Standard)",
-      sku: "OF-001",
-      category: "Filters",
-      stock: 45,
-      max: 100,
-      demand: 18,
-      price: 12.99,
-    },
-    {
-      id: 3,
-      name: "12V Car Battery",
-      sku: "BAT-001",
-      category: "Electrical",
-      stock: 8,
-      max: 30,
-      demand: 10,
-      price: 149.99,
-    },
-    {
-      id: 4,
-      name: "Transmission Fluid (ATF)",
-      sku: "TF-001",
-      category: "Fluids",
-      stock: 12,
-      max: 40,
-      demand: 6,
-      price: 34.99,
-    },
-    {
-      id: 5,
-      name: "Spark Plugs (Iridium)",
-      sku: "SP-001",
-      category: "Engine",
-      stock: 5,
-      max: 60,
-      demand: 15,
-      price: 18.99,
-    },
-    {
-      id: 6,
-      name: "Air Filters",
-      sku: "AF-001",
-      category: "Filters",
-      stock: 32,
-      max: 75,
-      demand: 8,
-      price: 24.99,
-    },
-    {
-      id: 7,
-      name: "Wiper Blades (Pair)",
-      sku: "WB-001",
-      category: "Accessories",
-      stock: 18,
-      max: 50,
-      demand: 7,
-      price: 29.99,
-    },
-    {
-      id: 8,
-      name: "Coolant (1 Gallon)",
-      sku: "CL-001",
-      category: "Fluids",
-      stock: 25,
-      max: 40,
-      demand: 5,
-      price: 19.99,
-    },
-  ]);
+  const [items, setItems] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-  /* ---------------- STATES ---------------- */
+  const API_URL = "http://127.0.0.1:8000/inventory-analytics";
 
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [sort, setSort] = useState("none");
+  /* ---------------- MODALS ---------------- */
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
+
+  /* ---------------- ADD FORM ---------------- */
+
+  const [form, setForm] = useState({
+    name: "",
+    sku: "",
+    category: "",
+    stock: "",
+    max: "",
+    price: "",
+  });
+
+  /* ---------------- FETCH ML DATA ---------------- */
+
+  useEffect(() => {
+    fetch(API_URL)
+      .then((res) => res.json())
+      .then((data) => {
+        const formatted = data.inventory.map(
+          (item, index) => {
+            const [stock, max] = item.stock
+              .split("/")
+              .map(Number);
+
+            return {
+              id: index + 1,
+              name: item.name,
+              sku: item.sku,
+              category: item.category,
+              stock,
+              max,
+              demand: parseFloat(
+                item.ai_demand.replace("/week", "")
+              ),
+              price: item.price,
+            };
+          }
+        );
+
+        setItems(formatted);
+      });
+  }, []);
 
   /* ---------------- HELPERS ---------------- */
 
@@ -114,38 +77,95 @@ export default function Inventory() {
     return "in";
   };
 
-  const handleReorder = (id) => {
+  /* ---------------- REORDER ---------------- */
+
+  const handleReorder = (item) => {
+    const qty = Math.floor(item.max / 2);
+
+    // Update stock
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, stock: item.stock + Math.floor(item.max / 2) }
-          : item
+      prev.map((i) =>
+        i.id === item.id
+          ? { ...i, stock: i.stock + qty }
+          : i
       )
     );
+
+    // Add to orders
+    setOrders((prev) => [
+      {
+        id: Date.now(),
+        name: item.name,
+        sku: item.sku,
+        quantity: qty,
+        date: new Date().toLocaleString(),
+        status: "Ordered",
+      },
+      ...prev,
+    ]);
+  };
+
+  /* ---------------- ADD ITEM ---------------- */
+
+  const handleAddItem = () => {
+    if (!form.name) return;
+
+    const newItem = {
+      id: Date.now(),
+      name: form.name,
+      sku: form.sku,
+      category: form.category,
+      stock: Number(form.stock),
+      max: Number(form.max),
+      demand: 5,
+      price: Number(form.price),
+    };
+
+    setItems((prev) => [...prev, newItem]);
+
+    setForm({
+      name: "",
+      sku: "",
+      category: "",
+      stock: "",
+      max: "",
+      price: "",
+    });
+
+    setShowAdd(false);
   };
 
   /* ---------------- FILTER + SORT ---------------- */
 
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("none");
+
   const filteredItems = useMemo(() => {
     let data = [...items];
 
-    /* Search */
     if (search) {
       data = data.filter(
         (i) =>
-          i.name.toLowerCase().includes(search.toLowerCase()) ||
-          i.sku.toLowerCase().includes(search.toLowerCase())
+          i.name
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          i.sku
+            .toLowerCase()
+            .includes(search.toLowerCase())
       );
     }
 
-    /* Filter */
     if (filter !== "all") {
-      data = data.filter((i) => getStatus(i) === filter);
+      data = data.filter(
+        (i) => getStatus(i) === filter
+      );
     }
 
-    /* Sort */
     if (sort === "name") {
-      data.sort((a, b) => a.name.localeCompare(b.name));
+      data.sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
     }
 
     if (sort === "stock") {
@@ -171,7 +191,8 @@ export default function Inventory() {
   ).length;
 
   const efficiency = Math.round(
-    (items.filter((i) => getStatus(i) === "in").length /
+    (items.filter((i) => getStatus(i) === "in")
+      .length /
       items.length) *
       100
   );
@@ -180,32 +201,38 @@ export default function Inventory() {
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
-
       {/* HEADER */}
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Parts Inventory</h1>
+          <h1 className="text-3xl font-bold">
+            Parts Inventory
+          </h1>
           <p className="text-gray-500">
             AI-powered inventory management
           </p>
         </div>
 
         <div className="flex gap-3">
-          <button className="btn-secondary">
+          <button
+            onClick={() => setShowOrders(true)}
+            className="btn-secondary"
+          >
             <Truck size={18} /> Order Parts
           </button>
 
-          <button className="btn-primary">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="btn-primary"
+          >
             <Plus size={18} /> Add Item
           </button>
         </div>
       </div>
 
-      {/* DASHBOARD CARDS */}
+      {/* DASHBOARD */}
 
       <div className="grid md:grid-cols-4 gap-5 mb-8">
-
         <StatCard
           icon={<Package />}
           title="Product Types"
@@ -235,50 +262,25 @@ export default function Inventory() {
         />
       </div>
 
-      {/* CONTROLS */}
+      {/* SEARCH */}
 
       <div className="flex flex-wrap gap-4 mb-5">
-
-        <div className="relative flex-1 min-w-[250px]">
-          <Search className="absolute left-3 top-3 text-gray-400" />
-
-          <input
-            type="text"
-            placeholder="Search by name or SKU..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 input"
-          />
-        </div>
-
-        <select
-          onChange={(e) => setFilter(e.target.value)}
-          className="input"
-        >
-          <option value="all">All</option>
-          <option value="in">In Stock</option>
-          <option value="low">Low Stock</option>
-          <option value="critical">Critical</option>
-        </select>
-
-        <select
-          onChange={(e) => setSort(e.target.value)}
-          className="input"
-        >
-          <option value="none">Sort</option>
-          <option value="name">Name</option>
-          <option value="stock">Stock</option>
-          <option value="price">Price</option>
-        </select>
+        <input
+          type="text"
+          placeholder="Search..."
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+          className="input flex-1"
+        />
       </div>
 
       {/* TABLE */}
 
       <div className="bg-white rounded-xl shadow">
-
         <table className="w-full text-sm">
-
-          <thead className="bg-slate-100 text-gray-600">
+          <thead className="bg-slate-100">
             <tr>
               {[
                 "Product",
@@ -292,7 +294,7 @@ export default function Inventory() {
               ].map((h) => (
                 <th
                   key={h}
-                  className="text-left px-4 py-3"
+                  className="px-4 py-3 text-left"
                 >
                   {h}
                 </th>
@@ -301,18 +303,12 @@ export default function Inventory() {
           </thead>
 
           <tbody>
-
             {filteredItems.map((item) => {
               const status = getStatus(item);
-              const percent =
-                (item.stock / item.max) * 100;
 
               return (
-                <tr
-                  key={item.id}
-                  className="border-b hover:bg-slate-50"
-                >
-                  <td className="px-4 py-3 font-medium">
+                <tr key={item.id} className="border-b">
+                  <td className="px-4 py-3">
                     {item.name}
                   </td>
 
@@ -321,84 +317,152 @@ export default function Inventory() {
                   </td>
 
                   <td className="px-4 py-3">
-                    <span className="badge">
-                      {item.category}
-                    </span>
+                    {item.category}
                   </td>
 
                   <td className="px-4 py-3">
-
-                    <p className="mb-1 text-xs">
-                      {item.stock}/{item.max}
-                    </p>
-
-                    <div className="h-2 bg-gray-200 rounded">
-
-                      <div
-                        className={`h-full rounded ${
-                          percent > 40
-                            ? "bg-green-500"
-                            : percent > 15
-                            ? "bg-yellow-500"
-                            : "bg-red-500"
-                        }`}
-                        style={{
-                          width: `${percent}%`,
-                        }}
-                      ></div>
-
-                    </div>
+                    {item.stock}/{item.max}
                   </td>
 
-                  <td className="px-4 py-3 flex gap-1 items-center text-purple-600">
-                    <Brain size={14} />
+                  <td className="px-4 py-3 text-purple-600">
                     {item.demand}/week
                   </td>
 
-                  <td className="px-4 py-3 font-semibold">
+                  <td className="px-4 py-3">
                     ${item.price}
                   </td>
 
                   <td className="px-4 py-3">
-                    <StatusBadge status={status} />
+                    <StatusBadge
+                      status={status}
+                    />
                   </td>
 
                   <td className="px-4 py-3">
-
                     {status !== "in" && (
                       <button
                         onClick={() =>
-                          handleReorder(item.id)
+                          handleReorder(item)
                         }
                         className="btn-primary-sm"
                       >
                         Reorder
                       </button>
                     )}
-
                   </td>
                 </tr>
               );
             })}
-
           </tbody>
         </table>
       </div>
+
+      {/* ADD MODAL */}
+
+      {showAdd && (
+        <Modal
+          title="Add New Item"
+          onClose={() => setShowAdd(false)}
+        >
+          {[
+            "name",
+            "sku",
+            "category",
+            "stock",
+            "max",
+            "price",
+          ].map((f) => (
+            <input
+              key={f}
+              placeholder={f}
+              value={form[f]}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  [f]: e.target.value,
+                })
+              }
+              className="input w-full mb-3"
+            />
+          ))}
+
+          <button
+            onClick={handleAddItem}
+            className="btn-primary w-full"
+          >
+            Add Item
+          </button>
+        </Modal>
+      )}
+
+      {/* ORDERS MODAL */}
+
+      {showOrders && (
+        <Modal
+          title="Ordered Parts"
+          onClose={() => setShowOrders(false)}
+        >
+          {orders.length === 0 && (
+            <p className="text-gray-500 text-center">
+              No orders yet
+            </p>
+          )}
+
+          {orders.map((o) => (
+            <div
+              key={o.id}
+              className="border p-3 rounded mb-2"
+            >
+              <p className="font-medium">
+                {o.name}
+              </p>
+
+              <p className="text-sm text-gray-500">
+                Qty: {o.quantity} | {o.date}
+              </p>
+
+              <p className="text-green-600 text-sm">
+                {o.status}
+              </p>
+            </div>
+          ))}
+        </Modal>
+      )}
     </div>
   );
 }
 
 /* ---------------- COMPONENTS ---------------- */
 
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-xl w-[400px] relative">
+
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3"
+        >
+          <X size={18} />
+        </button>
+
+        <h2 className="text-xl font-bold mb-4">
+          {title}
+        </h2>
+
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ icon, title, value, color }) {
   return (
     <div className="bg-white p-5 rounded-xl shadow flex justify-between items-center">
-
       <div>
         <p className="text-gray-500 text-sm">
           {title}
         </p>
-
         <h2 className="text-2xl font-bold">
           {value}
         </h2>

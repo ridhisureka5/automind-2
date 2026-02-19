@@ -23,9 +23,9 @@ export default function ServiceCenters() {
 
 
   /* ---------- FETCH ML ---------- */
-
+const API_URL = `${process.env.NEXT_PUBLIC_API}/load-prediction`;
   useEffect(() => {
-    fetch("http://localhost:8000/load-prediction")
+    fetch(API_URL)
       .then((res) => res.json())
       .then((data) => {
         setCenters(data.centers);

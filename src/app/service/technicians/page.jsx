@@ -42,10 +42,10 @@ export default function Technicians() {
 
 
   /* ---------------- FETCH ML DATA ---------------- */
-
+ const API_URL = `${process.env.NEXT_PUBLIC_API}/technician-analytics`;
   useEffect(() => {
 
-    fetch("http://127.0.0.1:8000/technician-analytics")
+    fetch(API_URL)
       .then((res) => res.json())
       .then((data) => {
 

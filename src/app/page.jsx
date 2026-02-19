@@ -713,17 +713,17 @@ function Stakeholders() {
                   </ul>
 
                   {/* Button */}
-                  <button
-                    className={`w-full ${c.btn}
-                               font-semibold py-4 rounded-xl
-                               flex items-center justify-center gap-2
-                               transition`}
-                  >
-
-                    Get Started
-                    <ArrowRight className="w-5 h-5" />
-
-                  </button>
+                 <Link href="/get-started" className="block">
+  <button
+    className={`w-full ${c.btn}
+               font-semibold py-4 rounded-xl
+               flex items-center justify-center gap-2
+               transition`}
+  >
+    Get Started
+    <ArrowRight className="w-5 h-5" />
+  </button>
+</Link>
 
                 </div>
 

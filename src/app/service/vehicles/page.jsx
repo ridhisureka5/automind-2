@@ -1,267 +1,173 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import {
-  Car,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  MapPin,
-  Calendar,
-  Gauge,
-  Search,
+  Car, Activity, AlertTriangle, CheckCircle,
+  Gauge, Zap, Thermometer, Fuel
 } from "lucide-react";
-
-/* ================= PAGE ================= */
 
 export default function VehiclesPage() {
 
+  const API = process.env.NEXT_PUBLIC_API;
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
-  /* ================= FETCH ML DATA ================= */
-
+  /* LIVE POLLING */
   useEffect(() => {
 
-    fetch("http://localhost:8000/vehicle-health")
-      .then((res) => res.json())
-      .then((data) => {
+    let active = true;
 
-        // Map backend → UI format
-        const formatted = data.vehicles.map((v) => ({
-          name: v.name,
-          vin: v.vin,
-          status: v.status,
-          score: v.health,
-          miles: v.mileage || "N/A",
-          year: v.year,
-          city: v.city,
-          next: v.next_service,
-        }));
+    const load = async () => {
+      try {
+        const res = await fetch(`${API}/vehicle-health`, { cache: "no-store" });
+        const data = await res.json();
 
-        setVehicles(formatted);
-        setLoading(false);
+        if (active) {
+          setVehicles(data.vehicles || []);
+          setLoading(false);
+        }
+      } catch (e) {}
+    };
 
-      })
-      .catch((err) => {
-        console.error("API Error:", err);
-        setLoading(false);
-      });
+    load();
+    const id = setInterval(load, 3000);
+    return () => { active = false; clearInterval(id); };
 
-  }, []);
+  }, [API]);
 
+  /* STATUS CALCULATION */
+  const getStatus = (v) => {
+    const t = v.data;
+    if (!t) return "Healthy";
 
-  /* ================= STATS ================= */
-
-  const total = vehicles.length;
-
-  const healthy = vehicles.filter(v => v.status === "Healthy").length;
-  const warning = vehicles.filter(v => v.status === "Warning").length;
-  const critical = vehicles.filter(v => v.status === "Critical").length;
-
-
-  /* ================= LOADING ================= */
-
-  if (loading) {
-    return (
-      <div className="p-10 text-center text-gray-500">
-        Loading ML Predictions...
-      </div>
+    let health = 100 - (
+      (t.misfire * 25) +
+      (t.overheat * 25) +
+      (t.low_oil * 25) +
+      (t.vibration > 0.6 ? 25 : 0)
     );
-  }
 
+    if (health < 40) return "Critical";
+    if (health < 70) return "Warning";
+    return "Healthy";
+  };
 
-  /* ================= UI ================= */
+  const healthy = vehicles.filter(v => getStatus(v) === "Healthy").length;
+  const warning = vehicles.filter(v => getStatus(v) === "Warning").length;
+  const critical = vehicles.filter(v => getStatus(v) === "Critical").length;
+
+  if (loading) return <div className="p-10">Connecting to vehicles...</div>;
 
   return (
     <div className="w-full p-6 bg-slate-50 space-y-6">
 
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">
-          Vehicle Monitoring
-        </h1>
+      <h1 className="text-2xl font-bold text-slate-800">
+        Live Fleet Telemetry
+      </h1>
 
-        <p className="text-slate-500 text-sm">
-          AI-powered vehicle health tracking
-        </p>
-      </div>
-
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-
-        <TopCard title="Total Vehicles" value={total} icon={<Car />} />
+      {/* STATS */}
+      <div className="grid grid-cols-4 gap-4">
+        <TopCard title="Online" value={vehicles.length} icon={<Car />} />
         <TopCard title="Healthy" value={healthy} icon={<CheckCircle />} />
         <TopCard title="Warning" value={warning} icon={<AlertTriangle />} />
         <TopCard title="Critical" value={critical} icon={<Activity />} />
-
       </div>
 
-
-      {/* Search Bar */}
-      <div className="bg-slate-800 rounded-xl p-4 flex gap-4 items-center">
-
-        <div className="flex items-center gap-2 bg-slate-700 px-4 py-2 rounded-lg flex-1">
-
-          <Search size={16} className="text-gray-400" />
-
-          <input
-            placeholder="Search by VIN, model, city..."
-            className="bg-transparent text-white outline-none text-sm w-full"
-          />
-
-        </div>
-
-      </div>
-
-
-      {/* Info */}
-      <p className="text-sm text-slate-500">
-        Showing {vehicles.length} vehicles
-      </p>
-
-
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-        {vehicles.map((v, i) => (
-          <VehicleCard key={i} data={v} />
-        ))}
-
+      {/* VEHICLES */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {vehicles.map(v => <VehicleCard key={v.vin} vehicle={v} />)}
       </div>
 
     </div>
   );
 }
 
-
-/* ================= COMPONENTS ================= */
+/* UI COMPONENTS */
 
 function TopCard({ title, value, icon }) {
-
   return (
-
-    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl p-4 flex justify-between items-center shadow">
-
+    <div className="bg-indigo-600 text-white p-4 rounded-xl flex justify-between">
       <div>
-        <p className="text-sm opacity-80">{title}</p>
+        <p className="text-sm">{title}</p>
         <h3 className="text-2xl font-bold">{value}</h3>
       </div>
-
       {icon}
-
     </div>
-
   );
 }
 
+/* VEHICLE CARD */
 
-/* ================= VEHICLE CARD ================= */
+function VehicleCard({ vehicle }) {
 
-function VehicleCard({ data }) {
+  const t = vehicle.data;
+  if (!t) return null;
+
+  let health = 100 - (
+    (t.misfire * 25) +
+    (t.overheat * 25) +
+    (t.low_oil * 25) +
+    (t.vibration > 0.6 ? 25 : 0)
+  );
+  if (health < 0) health = 0;
+
+  let status = "Healthy";
+  if (health < 70) status = "Warning";
+  if (health < 40) status = "Critical";
 
   const statusColor = {
     Healthy: "text-green-400",
     Warning: "text-yellow-400",
-    Critical: "text-red-400",
+    Critical: "text-red-400"
   };
 
+  const mode = ["City", "Highway", "Aggressive", "Fault"];
 
   return (
+    <div className="bg-slate-700 text-white rounded-2xl p-5 space-y-4">
 
-    <div className="bg-slate-700 text-white rounded-2xl p-4 shadow-lg">
-
-      {/* Header */}
-      <div className="flex justify-between items-start">
-
-        <div className="flex gap-3 items-center">
-
-          <div className="h-10 w-10 bg-slate-900 rounded-lg flex items-center justify-center">
-            <Car size={18} className="text-indigo-400" />
-          </div>
-
-          <div>
-
-            <h3 className="font-semibold">
-              {data.name}
-            </h3>
-
-            <p className="text-xs text-gray-400">
-              {data.vin}
-            </p>
-
-          </div>
-
+      <div className="flex justify-between">
+        <div>
+          <h3 className="font-semibold">{vehicle.vin}</h3>
+          <p className="text-xs text-gray-400">{mode[t.mode]} Driving</p>
         </div>
-
-
-        <span
-          className={`text-xs font-medium ${statusColor[data.status]}`}
-        >
-          {data.status}
-        </span>
-
+        <span className={statusColor[status]}>{status}</span>
       </div>
 
-
-      {/* Score */}
-      <div className="mt-4">
-
-        <div className="flex justify-between text-xs mb-1">
-
-          <span className="text-gray-400">Health Score</span>
-          <span>{data.score}%</span>
-
+      {/* HEALTH BAR */}
+      <div>
+        <div className="flex justify-between text-xs">
+          <span>Health</span>
+          <span>{health}%</span>
         </div>
-
-
-        <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-
-          <div
-            className="h-full bg-indigo-500"
-            style={{ width: `${data.score}%` }}
-          />
-
+        <div className="h-2 bg-slate-900 rounded-full">
+          <div className="h-2 bg-indigo-500 rounded-full"
+            style={{ width: `${health}%` }} />
         </div>
-
       </div>
 
-
-      {/* Info */}
-      <div className="mt-4 space-y-2 text-xs text-gray-300">
-
-        <Info icon={<Gauge size={14} />} text={`${data.miles}`} />
-        <Info icon={<Calendar size={14} />} text={data.year} />
-        <Info icon={<MapPin size={14} />} text={data.city} />
-
-      </div>
-
-
-      {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-slate-600 flex justify-between text-xs">
-
-        <span className="text-gray-400">Next Service</span>
-        <span>{data.next}</span>
-
+      {/* TELEMETRY */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <Info icon={<Gauge size={14} />} label="RPM" value={t.rpm} />
+        <Info icon={<Zap size={14} />} label="Speed" value={`${t.speed} km/h`} />
+        <Info icon={<Thermometer size={14} />} label="Coolant" value={`${t.coolant} °C`} />
+        <Info icon={<Thermometer size={14} />} label="Oil Temp" value={`${t.oil_temp} °C`} />
+        <Info icon={<Fuel size={14} />} label="Fuel" value={`${t.fuel}%`} />
+        <Info icon={<Activity size={14} />} label="Vibration" value={t.vibration} />
       </div>
 
     </div>
-
   );
 }
 
+/* SMALL INFO BOX */
 
-function Info({ icon, text }) {
-
+function Info({ icon, label, value }) {
   return (
-
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg">
       {icon}
-      {text}
+      <span className="text-gray-400">{label}:</span>
+      <span>{value}</span>
     </div>
-
   );
 }

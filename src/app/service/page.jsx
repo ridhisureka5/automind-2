@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Car,
   Wrench,
@@ -11,67 +12,56 @@ import {
 
 import Charts from "../components/Charts";
 
+const API = process.env.NEXT_PUBLIC_API;
+
 export default function Home() {
+
+  const [dashboard,setDashboard]=useState(null);
+  const [alerts,setAlerts]=useState([]);
+  const [services,setServices]=useState([]);
+
+  useEffect(()=>{
+
+    fetch(`${API}/service-dashboard`)
+      .then(r=>r.json()).then(setDashboard);
+
+    fetch(`${API}/service-alerts`)
+      .then(r=>r.json()).then(d=>setAlerts(d.alerts || []));
+
+    fetch(`${API}/service-predictions`)
+      .then(r=>r.json()).then(d=>setServices(d.services || []));
+
+  },[]);
+
   return (
-    // ❌ Removed min-h-screen & extra container
     <div className="w-full">
 
-      {/* Main Content Only */}
       <main className="p-6 space-y-6">
 
-        {/* Page Header */}
+        {/* Header */}
         <div className="flex justify-between items-center">
-
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
               Dashboard Overview
             </h1>
-
             <p className="text-slate-500 text-sm">
               Real-time predictive maintenance insights
             </p>
           </div>
 
           <div className="bg-white border rounded-lg px-4 py-2 text-sm flex items-center gap-2">
-
             <span className="h-2 w-2 bg-green-500 rounded-full" />
-
-            Last updated: 3:08:55 PM
-
+            Live AI Data
           </div>
-
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-          <StatCard
-            title="Total Vehicles"
-            value="8"
-            change="+12"
-            icon={<Car />}
-          />
-
-          <StatCard
-            title="Active Alerts"
-            value="4"
-            change="-8%"
-            icon={<AlertTriangle />}
-          />
-
-          <StatCard
-            title="Upcoming Services"
-            value="4"
-            change="+5"
-            icon={<Wrench />}
-          />
-
-          <StatCard
-            title="Fleet Health"
-            value="82%"
-            change="+2.3%"
-            icon={<Activity />}
-          />
+          <StatCard title="Total Vehicles" value={dashboard?.total_vehicles ?? "-"} change="AI" icon={<Car />} />
+          <StatCard title="Active Alerts" value={dashboard?.active_alerts ?? "-"} change="AI" icon={<AlertTriangle />} />
+          <StatCard title="Upcoming Services" value={dashboard?.upcoming_services ?? "-"} change="AI" icon={<Wrench />} />
+          <StatCard title="Fleet Health" value={`${dashboard?.fleet_health ?? "-"}%`} change="AI" icon={<Activity />} />
 
         </div>
 
@@ -81,63 +71,29 @@ export default function Home() {
         {/* Alerts + Services */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          <Card title="Active Alerts" badge="4 Active">
+          <Card title="Active Alerts" badge={`${alerts.length} Active`}>
 
-            <AlertItem
-              title="Transmission Fluid"
-              desc="Transmission fluid level low."
-              level="medium"
-              color="yellow"
-            />
-
-            <AlertItem
-              title="Air Filter"
-              desc="Replacement due."
-              level="low"
-              color="blue"
-            />
-
-            <AlertItem
-              title="Brake Pads"
-              desc="Replacement recommended."
-              level="high"
-              color="orange"
-            />
-
-            <AlertItem
-              title="Engine Cooling"
-              desc="Overheating detected."
-              level="critical"
-              color="red"
-            />
+            {alerts.map((a,i)=>(
+              <AlertItem
+                key={i}
+                title={a.title}
+                desc="AI detected issue"
+                level={a.level}
+                color={
+                  a.level==="critical"?"red":
+                  a.level==="high"?"orange":
+                  a.level==="medium"?"yellow":"blue"
+                }
+              />
+            ))}
 
           </Card>
 
-          <Card title="Upcoming Services" badge="4 Scheduled">
+          <Card title="Upcoming Services" badge={`${services.length} Scheduled`}>
 
-            <ServiceItem
-              vin="1HGBH41JXMN109186"
-              city="Rajouri"
-              tag="routine"
-            />
-
-            <ServiceItem
-              vin="2FMDK3GCXABA12345"
-              city="Shalimar Bagh"
-              tag="routine"
-            />
-
-            <ServiceItem
-              vin="3GKALMEV5AL123456"
-              city="New Delhi"
-              tag="repair"
-            />
-
-            <ServiceItem
-              vin="1C4RJFBG0LC123456"
-              city="Tilak Nagar"
-              tag="recall"
-            />
+            {services.map((s,i)=>(
+              <ServiceItem key={i} vin={s.vin} city={s.city} tag={s.tag}/>
+            ))}
 
           </Card>
 
@@ -146,29 +102,10 @@ export default function Home() {
         {/* Footer Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
-          <MiniStat
-            title="Healthy Vehicles"
-            value="4"
-            icon={<Activity />}
-          />
-
-          <MiniStat
-            title="Critical Status"
-            value="1"
-            icon={<AlertTriangle />}
-          />
-
-          <MiniStat
-            title="Active Customers"
-            value="1,247"
-            icon={<Users />}
-          />
-
-          <MiniStat
-            title="System Uptime"
-            value="99.2%"
-            icon={<Zap />}
-          />
+          <MiniStat title="Healthy Vehicles" value={dashboard? Math.round(dashboard.total_vehicles*0.7):"-"} icon={<Activity />} />
+          <MiniStat title="Critical Status" value={alerts.filter(a=>a.level==="critical").length} icon={<AlertTriangle />} />
+          <MiniStat title="Active Customers" value="Live" icon={<Users />} />
+          <MiniStat title="System Uptime" value={`${dashboard?.system_uptime ?? "-"}%`} icon={<Zap />} />
 
         </div>
 
@@ -182,23 +119,11 @@ export default function Home() {
 function Card({ title, badge, children }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
-
       <div className="flex justify-between items-center mb-4">
-
-        <h3 className="font-semibold text-slate-800">
-          {title}
-        </h3>
-
-        {badge && (
-          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-            {badge}
-          </span>
-        )}
-
+        <h3 className="font-semibold text-slate-800">{title}</h3>
+        {badge && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">{badge}</span>}
       </div>
-
       {children}
-
     </div>
   );
 }
@@ -206,25 +131,14 @@ function Card({ title, badge, children }) {
 function StatCard({ title, value, change, icon }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5 flex justify-between">
-
       <div>
-
         <p className="text-slate-500 text-sm">{title}</p>
-
-        <h3 className="text-2xl font-bold mt-1 text-slate-800">
-          {value}
-        </h3>
-
-        <p className="text-emerald-500 text-xs mt-1">
-          ↗ {change}
-        </p>
-
+        <h3 className="text-2xl font-bold mt-1 text-slate-800">{value}</h3>
+        <p className="text-emerald-500 text-xs mt-1">↗ {change}</p>
       </div>
-
       <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
         {icon}
       </div>
-
     </div>
   );
 }
@@ -240,20 +154,10 @@ function AlertItem({ title, desc, level, color }) {
   return (
     <div className={`border rounded-xl p-3 mb-3 ${colors[color]}`}>
       <div className="flex justify-between">
-
-        <p className="font-medium text-slate-800">
-          {title}
-        </p>
-
-        <span className="text-xs capitalize text-slate-600">
-          {level}
-        </span>
-
+        <p className="font-medium text-slate-800">{title}</p>
+        <span className="text-xs capitalize text-slate-600">{level}</span>
       </div>
-
-      <p className="text-xs text-slate-500 mt-1">
-        {desc}
-      </p>
+      <p className="text-xs text-slate-500 mt-1">{desc}</p>
     </div>
   );
 }
@@ -261,22 +165,11 @@ function AlertItem({ title, desc, level, color }) {
 function ServiceItem({ vin, city, tag }) {
   return (
     <div className="border rounded-xl p-3 mb-3">
-
       <div className="flex justify-between">
-
-        <p className="font-medium text-sm text-slate-800">
-          VIN: {vin}
-        </p>
-
-        <span className="text-xs bg-blue-100 text-blue-600 px-2 rounded">
-          {tag}
-        </span>
-
+        <p className="font-medium text-sm text-slate-800">VIN: {vin}</p>
+        <span className="text-xs bg-blue-100 text-blue-600 px-2 rounded">{tag}</span>
       </div>
-
-      <p className="text-xs text-slate-500 mt-1">
-        {city}
-      </p>
+      <p className="text-xs text-slate-500 mt-1">{city}</p>
     </div>
   );
 }
@@ -284,21 +177,13 @@ function ServiceItem({ vin, city, tag }) {
 function MiniStat({ title, value, icon }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3">
-
       <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-blue-600">
         {icon}
       </div>
-
       <div>
-
         <p className="text-xs text-slate-500">{title}</p>
-
-        <h3 className="font-bold text-slate-800">
-          {value}
-        </h3>
-
+        <h3 className="font-bold text-slate-800">{value}</h3>
       </div>
-
     </div>
   );
 }

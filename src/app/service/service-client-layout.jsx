@@ -49,6 +49,8 @@ export default function ServiceClientLayout({ children }) {
           <MenuItem href="/service/technicians" icon={<Users size={18}/>} text="Technicians"/>
           <MenuItem href="/service/inventory" icon={<Package size={18}/>} text="Inventory"/>
           <MenuItem href="/service/rcacapa" icon={<FileText size={18}/>} text="RCA / CAPA"/>
+            <MenuItem href="/service/Insurance" icon={<FileText size={18}/>} text="Insurance"/>
+
         </nav>
 
         <Link href="/get-started" className="mt-4 w-full text-center bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm font-medium">

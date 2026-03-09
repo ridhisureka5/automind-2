@@ -2,199 +2,246 @@
 
 import { useEffect, useState } from "react";
 import {
-  Clock,
-  User,
-  Wrench,
-  CheckCircle,
-  AlertCircle,
-} from "lucide-react";
-
-import { db } from "../../../lib/firebase";
-import {
   collection,
   onSnapshot,
-  query,
-  where,
-  Timestamp,
   updateDoc,
   doc,
-  orderBy,
+  Timestamp,
 } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-export default function ServiceSchedule() {
-  const [appointments, setAppointments] = useState([]);
-
-  const TOTAL_SLOTS = 8;
+export default function ServiceCenterDashboard() {
+  const [bookings, setBookings] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
 
   useEffect(() => {
-    // Start from beginning of today (safer than Timestamp.now())
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-  const q = query(
-  collection(db, "service_bookings"),
-  where("date", ">=", Timestamp.fromDate(today)),
-  orderBy("date", "asc")
-);
-
-
-
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-
-      setAppointments(data);
-    });
-
-    return () => unsubscribe();
+    const unsub = onSnapshot(
+      collection(db, "service_booking"),
+      (snapshot) => {
+        setBookings(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      }
+    );
+    return () => unsub();
   }, []);
 
-  const bookedSlots = appointments.length;
-  const availableSlots = TOTAL_SLOTS - bookedSlots;
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "supervisors"),
+      (snapshot) => {
+        setSupervisors(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  const active = bookings.filter(b => b.status !== "completed");
+  const completed = bookings.filter(b => b.status === "completed");
 
   return (
-    <div className="w-full p-6 bg-slate-50 space-y-6">
-      <h1 className="text-3xl font-bold text-slate-800">
-        Service Schedule
+    <div className="min-h-screen bg-gray-50 p-10">
+
+      <h1 className="text-4xl font-bold text-yellow-600 mb-10">
+        Service Car Schedule
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Appointments */}
-        <div className="lg:col-span-2 space-y-4">
-
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-slate-800">
-              Upcoming Booked Services
-            </h2>
-
-            <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm">
-              {bookedSlots} Booked
-            </span>
-          </div>
-
-          {appointments.length === 0 && (
-            <div className="bg-white p-6 rounded-xl shadow text-slate-500">
-              No upcoming bookings found.
-            </div>
-          )}
-
-          {appointments.map((a) => (
-            <AppointmentCard key={a.id} data={a} />
-          ))}
-
-        </div>
-
-        {/* Slot Overview */}
-        <div className="bg-white rounded-xl shadow p-5">
-          <h3 className="font-semibold mb-4">
-            Slot Overview
-          </h3>
-
-          <SummaryItem
-            text="Available Slots"
-            value={availableSlots}
-            color="green"
+      <Section title="Active Services">
+        {active.length === 0 && <p>No active services</p>}
+        {active.map((booking) => (
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            supervisors={supervisors}
           />
+        ))}
+      </Section>
 
-          <SummaryItem
-            text="Booked Slots"
-            value={bookedSlots}
-            color="yellow"
+      <Section title="Completed Services">
+        {completed.length === 0 && <p>No completed services</p>}
+        {completed.map((booking) => (
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            supervisors={supervisors}
+            completed
           />
-        </div>
+        ))}
+      </Section>
 
-      </div>
     </div>
   );
 }
 
-/* ---------------- COMPONENTS ---------------- */
+/* ======================================== */
 
-function AppointmentCard({ data }) {
+function Section({ title, children }) {
+  return (
+    <div className="mb-16">
+      <h2 className="text-2xl font-semibold mb-6">{title}</h2>
+      {children}
+    </div>
+  );
+}
 
-  const handleComplete = async () => {
-    try {
-      await updateDoc(
-        doc(db, "service_bookings", data.id),
-        { status: "completed" }
-      );
-    } catch (error) {
-      console.error("Error updating status:", error);
+/* ======================================== */
+
+function BookingCard({ booking, supervisors, completed }) {
+
+  const supervisor =
+    supervisors.find(s => s.id === booking.supervisorId);
+
+  const cardColor =
+    booking.status === "completed"
+      ? "bg-green-100 border-green-400"
+      : booking.status === "in_process"
+      ? "bg-blue-100 border-blue-400"
+      : "bg-yellow-100 border-yellow-400";
+
+  /* ASSIGN */
+  const assignSupervisor = async () => {
+    const free = supervisors.find(
+      (s) => s.isAvailable === true && !s.activeJobId
+    );
+
+    if (!free) {
+      alert("No supervisor available");
+      return;
+    }
+
+    await updateDoc(doc(db, "service_booking", booking.id), {
+      supervisorId: free.id,
+      supervisorName: free.name,
+      status: "assigned",
+      liveStage: "waiting",
+    });
+
+    await updateDoc(doc(db, "supervisors", free.id), {
+      isAvailable: false,
+      activeJobId: booking.id,
+    });
+  };
+
+  /* START WORK */
+  const startWorking = async () => {
+    await updateDoc(doc(db, "service_booking", booking.id), {
+      status: "in_process",
+      liveStage: "working",
+      serviceStartTime: Timestamp.now(),
+    });
+  };
+
+  /* COMPLETE */
+  const markCompleted = async () => {
+    await updateDoc(doc(db, "service_booking", booking.id), {
+      status: "completed",
+      liveStage: "done",
+      actualCompletionTime: Timestamp.now(), // only here
+    });
+
+    if (booking.supervisorId) {
+      await updateDoc(doc(db, "supervisors", booking.supervisorId), {
+        isAvailable: true,
+        activeJobId: null,
+      });
     }
   };
 
-  const isCompleted = data.status === "completed";
-
   return (
-    <div className="bg-white rounded-xl shadow p-5 flex justify-between items-center">
+    <div className={`border-2 rounded-2xl p-6 shadow-lg mb-6 transition-all duration-300 ${cardColor}`}>
 
-      <div className="flex gap-4">
-
-        <div className="h-12 w-12 bg-yellow-400 rounded-xl flex items-center justify-center">
-          <Clock />
-        </div>
+      <div className="flex justify-between items-start">
 
         <div>
-          <h3 className="font-semibold text-lg">
-            {data.time}
+          <h3 className="text-xl font-bold text-gray-800">
+            {booking.vehicleName}
           </h3>
 
-          <p className="text-slate-500 text-sm">
-            {data.serviceType}
+          <p className="text-sm text-gray-700 mt-1">
+            {booking.serviceType}
           </p>
 
-          <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
+          <div className="text-sm text-gray-600 mt-2 space-y-1">
+  <p>Service Center: {booking.serviceCenter}</p>
+  <p>Slot: {booking.slotTime}</p>
+  <p>Car ID: {booking.carId}</p>
+  <p>Contact: {booking.contact}</p>
+  <p>User ID: {booking.userId}</p>
 
-            <span className="flex items-center gap-1">
-              <User size={14} />
-              {data.userId}
-            </span>
+  <p>
+    Expected Delivery:
+    {booking.expectedCompletionTime &&
+      booking.expectedCompletionTime.toDate().toLocaleString()}
+  </p>
 
-            <span className="flex items-center gap-1">
-              <Wrench size={14} />
-              {data.vehicleName || data.carId}
-            </span>
-
-          </div>
+  {booking.status === "completed" &&
+    booking.actualCompletionTime && (
+      <p className="text-green-700 font-medium">
+        Completed At:
+        {booking.actualCompletionTime.toDate().toLocaleString()}
+      </p>
+  )}
+</div>
         </div>
+
+        <span className={`px-4 py-1 rounded-full text-white text-sm ${
+          booking.status === "completed"
+            ? "bg-green-600"
+            : booking.status === "in_process"
+            ? "bg-blue-600"
+            : "bg-yellow-600"
+        }`}>
+          {booking.status}
+        </span>
       </div>
 
-      {/* Status Button */}
-      <button
-        onClick={!isCompleted ? handleComplete : undefined}
-        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm text-white 
-          ${isCompleted ? "bg-green-600 cursor-default" : "bg-red-600 hover:bg-red-700"}
-        `}
-      >
-        <CheckCircle size={16} />
-        {isCompleted ? "Completed" : "Mark Completed"}
-      </button>
+      <div className="mt-4 text-sm">
+        <b>Supervisor:</b> {supervisor ? supervisor.name : "Not Assigned"}
+        <br />
+        <b>Stage:</b> {booking.liveStage}
+      </div>
 
-    </div>
-  );
-}
+      {!completed && (
+        <div className="mt-4 flex gap-3 flex-wrap">
 
+          {!booking.supervisorId && (
+            <button
+              onClick={assignSupervisor}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+            >
+              Assign Supervisor
+            </button>
+          )}
 
-function SummaryItem({ text, value, color }) {
-  const colors = {
-    green: "bg-green-50 text-green-600",
-    yellow: "bg-yellow-50 text-yellow-600",
-  };
+          {booking.supervisorId && booking.status !== "in_process" && (
+            <button
+              onClick={startWorking}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Working On This Car
+            </button>
+          )}
 
-  return (
-    <div
-      className={`flex justify-between items-center p-3 rounded-lg mb-2 ${colors[color]}`}
-    >
-      <span className="flex items-center gap-2">
-        <AlertCircle size={16} />
-        {text}
-      </span>
+          {booking.status === "in_process" && (
+            <button
+              onClick={markCompleted}
+              className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition"
+            >
+              Mark Completed
+            </button>
+          )}
 
-      <span className="font-bold">{value}</span>
+        </div>
+      )}
+
     </div>
   );
 }

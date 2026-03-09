@@ -22,16 +22,32 @@ export default function Home() {
 
   useEffect(()=>{
 
-    fetch(`${API}/service-dashboard`)
-      .then(r=>r.json()).then(setDashboard);
+    fetch(`${API}/predict-alerts`)
+      .then(r=>r.json())
+      .then(d=>setAlerts(d.alerts || []));
 
-    fetch(`${API}/service-alerts`)
-      .then(r=>r.json()).then(d=>setAlerts(d.alerts || []));
-
-    fetch(`${API}/service-predictions`)
-      .then(r=>r.json()).then(d=>setServices(d.services || []));
+    fetch(`${API}/predict-services`)
+      .then(r=>r.json())
+      .then(d=>setServices(d.services || []));
 
   },[]);
+
+  // derive dashboard values from API
+  useEffect(()=>{
+    const totalVehicles = services.length;
+    const activeAlerts = alerts.length;
+
+    setDashboard({
+      total_vehicles: totalVehicles,
+      active_alerts: activeAlerts,
+      upcoming_services: totalVehicles,
+      fleet_health: totalVehicles
+        ? Math.round(((totalVehicles-activeAlerts)/totalVehicles)*100)
+        : 0,
+      system_uptime: 99.2
+    });
+
+  },[alerts,services]);
 
   return (
     <div className="w-full">
@@ -58,14 +74,13 @@ export default function Home() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-          <StatCard title="Total Vehicles" value={dashboard?.total_vehicles ?? "-"} change="AI" icon={<Car />} />
-          <StatCard title="Active Alerts" value={dashboard?.active_alerts ?? "-"} change="AI" icon={<AlertTriangle />} />
-          <StatCard title="Upcoming Services" value={dashboard?.upcoming_services ?? "-"} change="AI" icon={<Wrench />} />
-          <StatCard title="Fleet Health" value={`${dashboard?.fleet_health ?? "-"}%`} change="AI" icon={<Activity />} />
+          <StatCard title="Total Vehicles" value={dashboard?.total_vehicles ?? "-"} icon={<Car />} />
+          <StatCard title="Active Alerts" value={dashboard?.active_alerts ?? "-"} icon={<AlertTriangle />} />
+          <StatCard title="Upcoming Services" value={dashboard?.upcoming_services ?? "-"} icon={<Wrench />} />
+          <StatCard title="Fleet Health" value={`${dashboard?.fleet_health ?? "-"}%`} icon={<Activity />} />
 
         </div>
 
-        {/* Charts */}
         <Charts />
 
         {/* Alerts + Services */}
@@ -76,8 +91,8 @@ export default function Home() {
             {alerts.map((a,i)=>(
               <AlertItem
                 key={i}
-                title={a.title}
-                desc="AI detected issue"
+                title={a.car_name}
+                desc={`VIN: ${a.vin} • ${a.failure_probability || ""}`}
                 level={a.level}
                 color={
                   a.level==="critical"?"red":
@@ -92,7 +107,12 @@ export default function Home() {
           <Card title="Upcoming Services" badge={`${services.length} Scheduled`}>
 
             {services.map((s,i)=>(
-              <ServiceItem key={i} vin={s.vin} city={s.city} tag={s.tag}/>
+              <ServiceItem
+                key={i}
+                vin={s.vin}
+                city={s.city}
+                tag={s.tag}
+              />
             ))}
 
           </Card>
@@ -128,13 +148,12 @@ function Card({ title, badge, children }) {
   );
 }
 
-function StatCard({ title, value, change, icon }) {
+function StatCard({ title, value, icon }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5 flex justify-between">
       <div>
         <p className="text-slate-500 text-sm">{title}</p>
         <h3 className="text-2xl font-bold mt-1 text-slate-800">{value}</h3>
-        <p className="text-emerald-500 text-xs mt-1">↗ {change}</p>
       </div>
       <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
         {icon}

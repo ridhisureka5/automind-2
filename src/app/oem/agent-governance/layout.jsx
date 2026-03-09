@@ -54,6 +54,13 @@ export default function ServiceClientLayout({ children }) {
           <MenuItem href="/oem/agent-governance/reports" icon={<FileText size={18} />} text="Reports" />
           <MenuItem href="/oem/agent-governance/registerations" icon={<FileText size={18} />} text="Registerations" />
           <MenuItem href="/oem/agent-governance/master-agent" icon={<FileText size={18} />} text="Master Agent" />
+           <MenuItem href="/oem/agent-governance/batch" icon={<FileText size={18} />} text="Complaint Analysis" />
+           <MenuItem href="/oem/agent-governance/batch-intelligence" icon={<FileText size={18} />} text="Batch Intelligence" />
+           <MenuItem href="/oem/agent-governance/dash" icon={<FileText size={18} />} text=" Intelligence Dashboard" />
+            <MenuItem href="/oem/agent-governance/carmodel" icon={<FileText size={18} />} text=" Model Dashboard" />
+          
+          
+          
         </nav>
 
         <Link href="/get-started" className="mt-4 w-full text-center bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm font-medium transition">

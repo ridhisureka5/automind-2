@@ -155,6 +155,7 @@ export default function Registrations() {
                 <th>Company</th>
                 <th>Model</th>
                 <th>Reg No</th>
+                <th>Package</th>
                 <th>User</th>
                 <th>Status</th>
                 {activeTab === "pending" && (
@@ -169,6 +170,7 @@ export default function Registrations() {
                   <td>{item.company}</td>
                   <td>{item.model}</td>
                   <td>{item.regNumber}</td>
+                  <td>{item.package}</td>
                   <td>{item.userId}</td>
                   <td>{item.status}</td>
 

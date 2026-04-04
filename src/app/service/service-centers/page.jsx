@@ -23,7 +23,7 @@ export default function ServiceCenters() {
 
 
   /* ---------- FETCH ML ---------- */
-const API_URL = `${process.env.NEXT_PUBLIC_API}/load-prediction`;
+const API_URL = `${process.env.NEXT_PUBLIC_API || "https://automind-backend-40d5.onrender.com"}/load-prediction`;
   useEffect(() => {
     fetch(API_URL)
       .then((res) => res.json())

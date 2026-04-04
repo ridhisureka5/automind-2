@@ -18,7 +18,7 @@ export default function Inventory() {
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
 
-  const API_URL = `${process.env.NEXT_PUBLIC_API}/inventory-analytics`;
+  const API_URL = `${process.env.NEXT_PUBLIC_API || "https://automind-backend-40d5.onrender.com"}/inventory-analytics`;
 
 
   /* ---------------- MODALS ---------------- */

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Brain, Activity, Shield, AlertTriangle } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API ;
+const API = process.env.NEXT_PUBLIC_API || "https://automind-backend-40d5.onrender.com";
 
 export default function MasterAgent() {
 

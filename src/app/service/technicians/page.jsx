@@ -42,7 +42,7 @@ export default function Technicians() {
 
 
   /* ---------------- FETCH ML DATA ---------------- */
- const API_URL = `${process.env.NEXT_PUBLIC_API}/technician-analytics`;
+ const API_URL = `${process.env.NEXT_PUBLIC_API || "https://automind-backend-40d5.onrender.com"}/technician-analytics`;
   useEffect(() => {
 
     fetch(API_URL)
